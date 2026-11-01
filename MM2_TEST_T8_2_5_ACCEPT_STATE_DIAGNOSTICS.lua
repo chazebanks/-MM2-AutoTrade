@@ -7578,37 +7578,6 @@ task.spawn(function()
 end)
 
 
--- T8.2.7: require the trade UI to be visibly rendered before timing emptiness.
-local function t827TradeRendered(trade)
-    if not trade or not trade.Parent then
-        return false
-    end
-
-    local node = trade
-
-    while node do
-        if node:IsA("GuiObject") and not node.Visible then
-            return false
-        end
-
-        if node:IsA("ScreenGui") then
-            local ok, enabled = pcall(function()
-                return node.Enabled
-            end)
-
-            if ok and not enabled then
-                return false
-            end
-
-            break
-        end
-
-        node = node.Parent
-    end
-
-    return true
-end
-
 -- T8.2.6: UI-first accepted-empty detection.
 -- Reads the rendered trade UI only; never touches our Accept button.
 local function t826TheirAcceptShown(trade)
@@ -7616,8 +7585,28 @@ local function t826TheirAcceptShown(trade)
         return false, "no-trade"
     end
 
-    if not t827TradeRendered(trade) then
-        return false, "trade-not-rendered"
+    do
+        local node = trade
+
+        while node do
+            if node:IsA("GuiObject") and not node.Visible then
+                return false, "trade-not-rendered"
+            end
+
+            if node:IsA("ScreenGui") then
+                local ok, enabled = pcall(function()
+                    return node.Enabled
+                end)
+
+                if ok and not enabled then
+                    return false, "trade-not-rendered"
+                end
+
+                break
+            end
+
+            node = node.Parent
+        end
     end
 
     local function shown(obj)
@@ -7683,10 +7672,37 @@ task.spawn(function()
         local trade = t6Trade()
         local target = T5 and T5.active or nil
 
+        local rendered = trade ~= nil
+
+        if rendered then
+            local node = trade
+
+            while node do
+                if node:IsA("GuiObject") and not node.Visible then
+                    rendered = false
+                    break
+                end
+
+                if node:IsA("ScreenGui") then
+                    local ok, enabled = pcall(function()
+                        return node.Enabled
+                    end)
+
+                    if ok and not enabled then
+                        rendered = false
+                    end
+
+                    break
+                end
+
+                node = node.Parent
+            end
+        end
+
         if not trade
             or not target
             or not target.Parent
-            or not t827TradeRendered(trade)
+            or not rendered
         then
             watchedUid = nil
             emptySince = nil
