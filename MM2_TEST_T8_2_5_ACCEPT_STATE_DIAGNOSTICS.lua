@@ -7607,6 +7607,29 @@ local function t826TheirAcceptShown(trade)
 
             node = node.Parent
         end
+
+        -- MM2 can mark Trade.Visible=true while the opening transition is
+        -- still positioned off-screen. Do not treat that pre-render state
+        -- as visible time for the 12-second empty-offer clock.
+        local camera = workspace.CurrentCamera
+        local viewport = camera and camera.ViewportSize
+        local pos = trade.AbsolutePosition
+        local size = trade.AbsoluteSize
+
+        if size.X <= 0 or size.Y <= 0 then
+            return false, "trade-not-rendered"
+        end
+
+        if viewport
+            and (
+                pos.X < 0
+                or pos.Y < 0
+                or pos.X + size.X > viewport.X
+                or pos.Y + size.Y > viewport.Y
+            )
+        then
+            return false, "trade-not-rendered"
+        end
     end
 
     local function shown(obj)
@@ -7696,6 +7719,26 @@ task.spawn(function()
                 end
 
                 node = node.Parent
+            end
+
+            if rendered then
+                local camera = workspace.CurrentCamera
+                local viewport = camera and camera.ViewportSize
+                local pos = trade.AbsolutePosition
+                local size = trade.AbsoluteSize
+
+                if size.X <= 0 or size.Y <= 0 then
+                    rendered = false
+                elseif viewport
+                    and (
+                        pos.X < 0
+                        or pos.Y < 0
+                        or pos.X + size.X > viewport.X
+                        or pos.Y + size.Y > viewport.Y
+                    )
+                then
+                    rendered = false
+                end
             end
         end
 
