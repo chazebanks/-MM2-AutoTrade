@@ -7578,14 +7578,71 @@ task.spawn(function()
 end)
 
 
--- T8.2.3 MINIMAL EMPTY-OFFER SAFETY
+-- T8.2.6: UI-first accepted-empty detection.
+-- Reads the rendered trade UI only; never touches our Accept button.
+local function t826TheirAcceptShown(trade)
+    if not trade then
+        return false, "no-trade"
+    end
+
+    local function shown(obj)
+        if not obj:IsA("GuiObject") or not obj.Visible then
+            return false
+        end
+
+        local p = obj.Parent
+
+        while p and p ~= trade do
+            if p:IsA("GuiObject") and not p.Visible then
+                return false
+            end
+
+            p = p.Parent
+        end
+
+        return p == trade
+    end
+
+    -- Strongest proof: MM2 visibly renders this exact status text when the
+    -- other player has accepted. Search the whole trade window because the
+    -- label is not guaranteed to live under TheirOffer.
+    for _, child in ipairs(trade:GetDescendants()) do
+        if (child:IsA("TextLabel") or child:IsA("TextButton"))
+            and shown(child)
+        then
+            local raw = tostring(child.Text or "")
+            local text = raw
+                :upper()
+                :gsub("%s+", " ")
+                :gsub("^%s+", "")
+                :gsub("%s+$", "")
+
+            if text:find("OTHER PLAYER HAS ACCEPTED", 1, true) then
+                return true, child:GetFullName() .. " | text=" .. raw
+            end
+        end
+    end
+
+    -- Keep the narrow legacy structural check as a secondary proof only.
+    local side = trade:FindFirstChild("TheirOffer")
+    local direct = side and side:FindFirstChild("Accepted")
+
+    if direct and shown(direct) then
+        return true, direct:GetFullName()
+    end
+
+    return false, "none"
+end
+
+-- T8.2.6 EMPTY-OFFER SAFETY
+-- Empty means exactly zero visible item slots in THEIR OFFER.
 task.spawn(function()
     local watchedUid = nil
     local emptySince = nil
     local fired = false
     local lastAcceptanceState = nil
 
-    print("[MM2 T8.2.5] ACCEPTANCE DIAGNOSTICS ARMED - behavior unchanged")
+    print("[MM2 T8.2.6] UI-FIRST ACCEPTED-EMPTY SAFETY ARMED")
 
     while true do
         local trade = t6Trade()
@@ -7606,63 +7663,38 @@ task.spawn(function()
             end
 
             if not fired then
-                local ev = t7EvaluateTheirOffer(trade, target)
-                local theirValue = tonumber(ev and ev.total) or 0
-                local theirCopies = tonumber(ev and ev.eligibleCopies) or 0
+                local theirSide = t7ReadLiveSide(
+                    trade,
+                    "TheirOffer"
+                )
 
-                if theirValue <= 0 or theirCopies <= 0 then
-                    local theirSide = t7ReadLiveSide(
-                        trade,
-                        "TheirOffer"
-                    )
-                    local acceptedNode =
-                        trade:FindFirstChild("TheirOffer")
-                        and trade.TheirOffer:FindFirstChild("Accepted")
-                    -- T8.2.5: acceptance-state diagnostic (read-only).
-                    -- Log changes, not every polling cycle.
-                    local acceptedPath = acceptedNode and acceptedNode:GetFullName() or "missing"
-                    local acceptedVisible = acceptedNode and tostring(acceptedNode.Visible) or "nil"
-                    local acceptedText = ""
-                    if acceptedNode and acceptedNode:IsA("TextLabel") then
-                        acceptedText = tostring(acceptedNode.Text)
-                    end
+                if theirSide.slots == 0 then
+                    local theirAccepted, acceptedVia =
+                        t826TheirAcceptShown(trade)
+
                     local acceptedState = string.format(
-                        "slots=%s | node=%s | visible=%s | text=%s",
-                        tostring(theirSide.slots),
-                        acceptedPath,
-                        acceptedVisible,
-                        acceptedText
+                        "slots=0 | accepted=%s | via=%s",
+                        tostring(theirAccepted),
+                        tostring(acceptedVia)
                     )
+
                     if acceptedState ~= lastAcceptanceState then
                         lastAcceptanceState = acceptedState
-                        print("[MM2 T8.2.5] ACCEPT STATE", target.Name, acceptedState)
-                        local side = trade:FindFirstChild("TheirOffer")
-                        if side then
-                            for _, child in ipairs(side:GetDescendants()) do
-                                if child.Name:lower():find("accept", 1, true) then
-                                    local details = child:GetFullName()
-                                    if child:IsA("GuiObject") then
-                                        details ..= " | visible=" .. tostring(child.Visible)
-                                    end
-                                    if child:IsA("TextLabel") or child:IsA("TextButton") then
-                                        details ..= " | text=" .. tostring(child.Text)
-                                    end
-                                    print("[MM2 T8.2.5] ACCEPT CANDIDATE", details)
-                                end
-                            end
-                        end
-                    end
-                    local acceptedEmpty =
-                        theirSide.slots == 0
-                        and acceptedNode
-                        and acceptedNode.Visible
 
-                    if acceptedEmpty then
+                        print(
+                            "[MM2 T8.2.6] ACCEPT STATE",
+                            target.Name,
+                            acceptedState
+                        )
+                    end
+
+                    if theirAccepted then
                         fired = true
 
                         print(
-                            "[MM2 T8.2.4] ACCEPTED EMPTY - IMMEDIATE DECLINE",
-                            target.Name
+                            "[MM2 T8.2.6] ACCEPTED EMPTY - IMMEDIATE DECLINE",
+                            target.Name,
+                            "| via", acceptedVia
                         )
 
                         guiSetStatus(
@@ -7672,7 +7704,7 @@ task.spawn(function()
                         guiSetPlayer(
                             target,
                             "processed",
-                            "ACCEPTED EMPTY SAFETY\nThey accepted with zero items in THEIR OFFER\nDeclining immediately and moving to next player.",
+                            "ACCEPTED EMPTY SAFETY\nThey accepted with zero visible items in THEIR OFFER\nDeclining immediately and moving to next player.",
                             Live.order[tostring(target.UserId)] or 0
                         )
 
@@ -7680,10 +7712,11 @@ task.spawn(function()
                     else
                         if not emptySince then
                             emptySince = os.clock()
+
                             print(
-                                "[MM2 T8.2.4] EMPTY TIMER START",
+                                "[MM2 T8.2.6] EMPTY TIMER START",
                                 target.Name,
-                                "| 12s"
+                                "| 12s | visible slots=0"
                             )
                         end
 
@@ -7701,15 +7734,15 @@ task.spawn(function()
                             fired = true
 
                             print(
-                                "[MM2 T8.2.4] EMPTY SAFETY FIRE",
+                                "[MM2 T8.2.6] EMPTY SAFETY FIRE",
                                 target.Name,
-                                "| auto-declining"
+                                "| 12s with zero visible slots"
                             )
 
                             guiSetPlayer(
                                 target,
                                 "processed",
-                                "EMPTY OFFER SAFETY\nTheir eligible offer stayed at 0 for 12s\nAuto-declining and moving on.",
+                                "EMPTY OFFER SAFETY\nTHEIR OFFER stayed at zero visible item slots for 12s\nAuto-declining and moving on.",
                                 Live.order[tostring(target.UserId)] or 0
                             )
 
@@ -7719,13 +7752,14 @@ task.spawn(function()
                 else
                     if emptySince then
                         print(
-                            "[MM2 T8.2.4] EMPTY TIMER CLEARED",
+                            "[MM2 T8.2.6] EMPTY TIMER CLEARED",
                             target.Name,
-                            "| their value", theirValue
+                            "| visible slots", theirSide.slots
                         )
                     end
 
                     emptySince = nil
+                    lastAcceptanceState = nil
                 end
             end
 
@@ -7733,3 +7767,4 @@ task.spawn(function()
         end
     end
 end)
+
