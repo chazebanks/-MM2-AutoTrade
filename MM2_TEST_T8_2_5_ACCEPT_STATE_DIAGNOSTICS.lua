@@ -7578,6 +7578,48 @@ task.spawn(function()
 end)
 
 
+-- T8.2.5: opponent-accepted detection. Reads only; never touches our Accept.
+local function t825TheirAcceptShown(trade)
+    local side = trade and trade:FindFirstChild("TheirOffer")
+    if not side then
+        return false, "no-side"
+    end
+
+    local function shown(obj)
+        if not obj:IsA("GuiObject") or not obj.Visible then
+            return false
+        end
+        local p = obj.Parent
+        while p and p ~= trade do
+            if p:IsA("GuiObject") and not p.Visible then
+                return false
+            end
+            p = p.Parent
+        end
+        if obj:IsA("TextLabel") and obj.Text == "" then
+            return false
+        end
+        return true
+    end
+
+    local direct = side:FindFirstChild("Accepted")
+    if direct and shown(direct) then
+        return true, "Accepted"
+    end
+
+    for _, child in ipairs(side:GetDescendants()) do
+        if child:IsA("GuiObject")
+            and not child:IsA("GuiButton")
+            and child.Name:lower():find("accept", 1, true)
+            and shown(child)
+        then
+            return true, child:GetFullName()
+        end
+    end
+
+    return false, "none"
+end
+
 -- T8.2.3 MINIMAL EMPTY-OFFER SAFETY
 task.spawn(function()
     local watchedUid = nil
@@ -7652,17 +7694,19 @@ task.spawn(function()
                             end
                         end
                     end
+                    local theirAccepted, acceptedVia =
+                        t825TheirAcceptShown(trade)
                     local acceptedEmpty =
                         theirSide.slots == 0
-                        and acceptedNode
-                        and acceptedNode.Visible
+                        and theirAccepted
 
                     if acceptedEmpty then
                         fired = true
 
                         print(
                             "[MM2 T8.2.4] ACCEPTED EMPTY - IMMEDIATE DECLINE",
-                            target.Name
+                            target.Name,
+                            "| via", acceptedVia
                         )
 
                         guiSetStatus(
