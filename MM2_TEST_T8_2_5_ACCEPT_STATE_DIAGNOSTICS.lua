@@ -7473,6 +7473,29 @@ local function t8Run()
                     then
                         T8.result = "success"
 
+                        -- Keep the verified replacement visible long enough to inspect.
+                        -- This is intentionally isolated to the successful rebalance path:
+                        -- no Accept press, no planner change, and no delay on failures/no-plan.
+                        guiSetStatus(
+                            string.format(
+                                "T8 — REBALANCE VERIFIED | HOLDING 2.0s | OUR %s | THEIR %s | PROFIT %+g",
+                                tostring(finalOurs.total),
+                                tostring(finalTheir.total),
+                                profit
+                            )
+                        )
+
+                        print(
+                            "[MM2 T8.2.5] VERIFIED REBALANCE HOLD",
+                            "| 2.0s",
+                            "| ours", finalOurs.total,
+                            "| theirs", finalTheir.total,
+                            "| profit", profit,
+                            "| ACCEPT remains disabled"
+                        )
+
+                        task.wait(2.00)
+
                         t8ConfirmAndStop(
                             target,
                             "T8 REBALANCE CONFIRMED",
