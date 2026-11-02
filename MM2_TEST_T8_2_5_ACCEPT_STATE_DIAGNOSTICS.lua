@@ -29,6 +29,9 @@
 -- It only proves the startup path and bot-safety gate work together.
 
 print("[MM2 T8.2.4] BOOT - immediate accepted-empty decline")
+-- MODULE SCOPE: proven startup stack (T1/T2/T3)
+-- Keeps startup-only locals out of the main chunk's local/register budget.
+if not (function()
 local Players = game:GetService("Players")
 local VIM = game:GetService("VirtualInputManager")
 local CoreGui = game:GetService("CoreGui")
@@ -1209,6 +1212,11 @@ if not friendOK then
 end
 
 print("[MM2 Startup Safety] SUCCESS - bot gate + Tablet + optional Friend Play complete")
+
+return true
+end)() then
+    return
+end
 
 -- ============================================================
 -- INTEGRATION HANDOFF: STARTUP SAFETY -> LIVE ELIGIBILITY SCANNER
@@ -2725,6 +2733,9 @@ print(
 )
 
 
+-- MODULE SCOPE: trading stack (T5/T6/T7/T8)
+-- All trading locals compile inside their own function budget while capturing T4 exports as upvalues.
+(function()
 -- ============================================================================
 -- T5 OUTGOING REQUEST ROTATION TEST
 -- Uses the proven T4.4 live whitelist.
@@ -7768,3 +7779,5 @@ task.spawn(function()
     end
 end)
 
+
+end)()
