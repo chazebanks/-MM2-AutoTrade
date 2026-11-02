@@ -1188,6 +1188,79 @@ end
 
 
 -- ============================================================
+-- WORLD READY GATE
+-- Do not launch T4/T5 while MM2 still shows Loading World/Character.
+-- Requires the loading text to be gone and the local character to be
+-- present for a short stable window before startup hands off.
+-- ============================================================
+local function runWorldReadyStage()
+    local deadline = os.clock() + 60
+    local clearSince = nil
+    local lastState = nil
+
+    print("[MM2 World Ready] ARMED - waiting for Loading World/Character to clear")
+
+    while os.clock() < deadline do
+        local loading = false
+        local loadingText = nil
+
+        local pg = LP:FindFirstChildOfClass("PlayerGui")
+        local rootsToCheck = {pg, CoreGui}
+
+        for _, root in ipairs(rootsToCheck) do
+            if root then
+                for _, obj in ipairs(root:GetDescendants()) do
+                    if (obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox"))
+                        and visible(obj)
+                    then
+                        local txt = textOf(obj, false)
+
+                        if txt:find("loading world", 1, true)
+                            or txt:find("loading character", 1, true)
+                        then
+                            loading = true
+                            loadingText = txt
+                            break
+                        end
+                    end
+                end
+            end
+
+            if loading then
+                break
+            end
+        end
+
+        local char = LP.Character
+        local rootPart = char and char:FindFirstChild("HumanoidRootPart")
+        local state = loading
+            and ("loading:" .. tostring(loadingText))
+            or (rootPart and "clear+character" or "clear+no-character")
+
+        if state ~= lastState then
+            lastState = state
+            print("[MM2 World Ready]", state)
+        end
+
+        if not loading and rootPart then
+            if not clearSince then
+                clearSince = os.clock()
+            elseif os.clock() - clearSince >= 1.50 then
+                print("[MM2 World Ready] SUCCESS - world stable for 1.5s")
+                return true
+            end
+        else
+            clearSince = nil
+        end
+
+        task.wait(0.15)
+    end
+
+    warn("[MM2 World Ready] STOPPED - world never became stable; T4/T5 will not start")
+    return false
+end
+
+-- ============================================================
 -- COMBINED PROVEN STARTUP ORDER: BOT -> TABLET -> FRIEND PLAY
 -- ============================================================
 
@@ -1211,7 +1284,13 @@ if not friendOK then
     return
 end
 
-print("[MM2 Startup Safety] SUCCESS - bot gate + Tablet + optional Friend Play complete")
+local worldOK = runWorldReadyStage()
+if not worldOK then
+    warn("[MM2 Startup Safety] STOPPED - world readiness gate failed")
+    return
+end
+
+print("[MM2 Startup Safety] SUCCESS - bot gate + Tablet + optional Friend Play + world ready")
 
 return true
 end)() then
