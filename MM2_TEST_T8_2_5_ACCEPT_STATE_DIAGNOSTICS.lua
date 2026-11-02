@@ -3931,70 +3931,58 @@ local function t511MouseClickPlayerLabel(label, plr)
 end
 
 local function t54OpenTargetCard(plr)
-    local cleared = t58CloseAnyOpenCard()
-
-    if not cleared then
+    if not t58CloseAnyOpenCard() then
         return false, "could not clear stale Profile/Trade card"
     end
-
     task.wait(0.20)
-
     local label, why = t58FindTargetPlayerLabel(plr)
+    if not label then return false, why end
 
-    if not label then
-        return false, why
-    end
-
-    print(
-        "[MM2 T5.19] EXACT PLAYERLABEL",
-        plr.Name,
-        "|", label:GetFullName()
-    )
-
-    local clicked = t511MouseClickPlayerLabel(label, plr)
-
-    if not clicked then
-        return false, "mouse-style PlayerLabel click failed"
-    end
-
-    local deadline = os.clock() + 3.0
-    local lastWrong = nil
-
-    while os.clock() < deadline do
-        local card, tradeButton, matched = t57FindOpenPlayerCard(plr)
-
-        if card and matched == true then
-            print(
-                "[MM2 T5.19] VERIFIED FRESH CARD",
-                plr.Name,
-                "|", card:GetFullName()
-            )
-
-            return true, tradeButton
-        end
-
-        if card and matched == false then
-            local texts = table.concat(t57CardTextList(card), " | ")
-
-            if texts ~= lastWrong then
-                lastWrong = texts
-
-                warn(
-                    "[MM2 T5.19] WRONG CARD AFTER EXACT MOUSE CLICK",
-                    "wanted", plr.Name,
-                    "| card text:", texts
-                )
+    -- Click the exact username row first. Verify the resulting card BEFORE
+    -- trying a different input path; a successful input call is not proof.
+    local function checkCard(seconds)
+        local deadline = os.clock() + seconds
+        while os.clock() < deadline do
+            local card, tradeButton, matched = t57FindOpenPlayerCard(plr)
+            if card and matched == true then return true, tradeButton end
+            if card and matched == false then
+                warn("[MM2 T5] WRONG PROFILE CARD", plr.Name)
+                t58CloseAnyOpenCard()
+                return false, "wrong player card"
             end
-
-            t58CloseAnyOpenCard()
-
-            return false, "exact mouse click opened a different player's card"
+            task.wait(0.08)
         end
-
-        task.wait(0.08)
+        return false, "no verified player card"
     end
 
-    return false, "exact mouse click produced no fresh Profile/Trade card"
+    -- Try the previously proven inset-adjusted mouse click first.
+    if t511MouseClickPlayerLabel(label, plr) then
+        local verified, trade = checkCard(1.25)
+        if verified then return true, trade end
+    end
+
+    -- Device-dependent coordinate fallback: raw mouse coordinates.
+    if not t58CloseAnyOpenCard() then return false, "stale card after first click" end
+    label = select(1, t58FindTargetPlayerLabel(plr))
+    if not label then return false, "target label disappeared" end
+    local p, z = label.AbsolutePosition, label.AbsoluteSize
+    local x, y = p.X + z.X / 2, p.Y + z.Y / 2
+    print("[MM2 T5] RAW LABEL CLICK RETRY", plr.Name, math.floor(x), math.floor(y))
+    pcall(function()
+        VIM:SendMouseButtonEvent(x, y, 0, true, game, 0)
+        task.wait(0.07)
+        VIM:SendMouseButtonEvent(x, y, 0, false, game, 0)
+    end)
+    local verified, trade = checkCard(1.25)
+    if verified then return true, trade end
+
+    -- Last resort: touch the label itself; verify the same target afterward.
+    if not t58CloseAnyOpenCard() then return false, "stale card after raw click" end
+    label = select(1, t58FindTargetPlayerLabel(plr))
+    if not label then return false, "target label disappeared before touch" end
+    print("[MM2 T5] TOUCH LABEL RETRY", plr.Name)
+    t59DirectTap(label)
+    return checkCard(1.5)
 end
 
 local function t5FindTradePanel()
