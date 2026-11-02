@@ -1425,7 +1425,7 @@ local function makeText(parent, name, text, size, pos, fontSize)
     x.Size = size
     x.Position = pos or UDim2.new()
     x.Font = Enum.Font.Gotham
-    x.TextSize = fontSize or 16
+    x.TextSize = fontSize or 18
     x.TextColor3 = Color3.fromRGB(238, 241, 245)
     x.TextXAlignment = Enum.TextXAlignment.Left
     x.TextYAlignment = Enum.TextYAlignment.Center
@@ -1482,7 +1482,7 @@ local function createGui()
         "MM2 T4.4 Live Eligibility Scanner",
         UDim2.new(1, -74, 1, 0),
         UDim2.fromOffset(14, 0),
-        18
+        20
     )
     title.Font = Enum.Font.GothamBold
 
@@ -1495,7 +1495,7 @@ local function createGui()
     minimize.BackgroundTransparency = 0.08
     minimize.BorderSizePixel = 0
     minimize.Font = Enum.Font.GothamBold
-    minimize.TextSize = 18
+    minimize.TextSize = 20
     minimize.TextColor3 = Color3.fromRGB(238, 241, 245)
     minimize.Text = "—"
 
@@ -1509,7 +1509,7 @@ local function createGui()
         "Starting scanner...",
         UDim2.new(1, -28, 0, 42),
         UDim2.fromOffset(14, 42),
-        14
+        16
     )
     status.TextColor3 = Color3.fromRGB(188, 199, 216)
 
@@ -1519,7 +1519,7 @@ local function createGui()
         "Whitelist 0  |  Blacklist 0  |  Unknown 0",
         UDim2.new(1, -28, 0, 28),
         UDim2.fromOffset(14, 84),
-        14
+        16
     )
     summary.Font = Enum.Font.GothamSemibold
 
@@ -1744,7 +1744,7 @@ local function guiSetPlayer(player, state, detail, order)
         label.BackgroundTransparency = 0.08
         label.BorderSizePixel = 0
         label.Font = Enum.Font.Gotham
-        label.TextSize = 14
+        label.TextSize = 16
         label.TextColor3 = Color3.fromRGB(245, 247, 250)
         label.TextXAlignment = Enum.TextXAlignment.Left
         label.TextYAlignment = Enum.TextYAlignment.Top
