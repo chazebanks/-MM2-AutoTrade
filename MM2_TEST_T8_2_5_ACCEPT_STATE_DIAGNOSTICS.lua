@@ -4692,6 +4692,43 @@ local function t516ResumeVisiblePending(target, maxSeconds)
     return "ignored"
 end
 
+-- T5 loading-safe gate: do not spend request time while the local trade UI is unavailable.
+local function t5LocalUiReady()
+    if not LP.Character or not LP.Character.Parent then return false end
+    if not t56FindMM2LeaderboardRoot() or not t55FindMM2TradePanel() then return false end
+    for _, d in ipairs(PG_T5:GetDescendants()) do
+        if (d:IsA("TextLabel") or d:IsA("TextButton")) and t5Visible(d) then
+            local tx = t5Key(t5Text(d))
+            if tx == "loadingworld" or tx == "loadingcharacter"
+                or tx == "selectyourdevice" or tx == "tabletormobile"
+                or tx == "joiningafriend" then
+                return false
+            end
+        end
+    end
+    return true
+end
+
+local function t5WaitStableUi(target, maxWait)
+    local deadline = os.clock() + (maxWait or 30)
+    local stableSince = nil
+    while os.clock() < deadline do
+        if target and (not target.Parent or Players:GetPlayerByUserId(target.UserId) ~= target) then
+            return false, "left"
+        end
+        if t5Trade() then return false, "trade-open" end
+        if t5LocalUiReady() then
+            stableSince = stableSince or os.clock()
+            if os.clock() - stableSince >= 1.5 then return true end
+        else
+            stableSince = nil
+            t5SetStatus("T5 paused — waiting for stable lobby/trade UI")
+        end
+        task.wait(0.2)
+    end
+    return false, "ui-not-ready"
+end
+
 local function t5SendAndWatch(target)
     if not target
         or target.Parent ~= Players
@@ -4780,6 +4817,14 @@ local function t5SendAndWatch(target)
             )
 
             return "trade-open"
+        end
+
+        local uiReady, uiReason = t5WaitStableUi(target, 30)
+        if not uiReady then
+            if uiReason == "trade-open" then return "trade-open" end
+            if uiReason == "left" then return "left" end
+            t5Row(target, "sending", "Local trade UI not ready; deferring target")
+            return "ui-not-ready"
         end
 
         local mm2Root = t56FindMM2LeaderboardRoot()
@@ -5035,6 +5080,7 @@ local function t5SendAndWatch(target)
 
     -- The request is now proven to exist on the sender side.
     local responseStarted = os.clock()
+    local responseDeadline = responseStarted + 10
 
     t5Row(
         target,
@@ -5048,7 +5094,18 @@ local function t5SendAndWatch(target)
         .. " | 10.0s"
     )
 
-    while os.clock() - responseStarted < 10 do
+    while os.clock() < responseDeadline do
+        if not t5LocalUiReady() then
+            local pausedAt = os.clock()
+            local ready, reason = t5WaitStableUi(target, 30)
+            responseDeadline += os.clock() - pausedAt
+            if reason == "trade-open" then return "trade-open" end
+            if reason == "left" then return "left" end
+            if not ready then
+                t5Row(target, "requesting", "Loading interruption; request state preserved")
+                return "ui-not-ready"
+            end
+        end
         if not target.Parent
             or Players:GetPlayerByUserId(target.UserId) ~= target
         then
@@ -5169,7 +5226,7 @@ local function t5SendAndWatch(target)
 
         local left = math.max(
             0,
-            10 - (os.clock() - responseStarted)
+            responseDeadline - os.clock()
         )
 
         t5Row(
@@ -5271,6 +5328,12 @@ task.spawn(function()
             continue
         else
             orphanPendingSince = nil
+        end
+
+        if not t5LocalUiReady() then
+            t5SetStatus("T5 queue paused — local lobby/trade UI not ready")
+            task.wait(0.35)
+            continue
         end
 
         local target = t5NextTarget()
