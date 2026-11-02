@@ -1376,7 +1376,7 @@ local GUI = {
     minimize = nil,
     rows = {},
     minimized = false,
-    fullSize = UDim2.fromOffset(470, 520),
+    fullSize = UDim2.fromOffset(540, 560),
     miniSize = UDim2.fromOffset(470, 105),
 }
 
@@ -1425,7 +1425,7 @@ local function makeText(parent, name, text, size, pos, fontSize)
     x.Size = size
     x.Position = pos or UDim2.new()
     x.Font = Enum.Font.Gotham
-    x.TextSize = fontSize or 16
+    x.TextSize = fontSize or 20
     x.TextColor3 = Color3.fromRGB(238, 241, 245)
     x.TextXAlignment = Enum.TextXAlignment.Left
     x.TextYAlignment = Enum.TextYAlignment.Center
@@ -1482,7 +1482,7 @@ local function createGui()
         "MM2 T4.4 Live Eligibility Scanner",
         UDim2.new(1, -74, 1, 0),
         UDim2.fromOffset(14, 0),
-        18
+        22
     )
     title.Font = Enum.Font.GothamBold
 
@@ -1495,7 +1495,7 @@ local function createGui()
     minimize.BackgroundTransparency = 0.08
     minimize.BorderSizePixel = 0
     minimize.Font = Enum.Font.GothamBold
-    minimize.TextSize = 18
+    minimize.TextSize = 22
     minimize.TextColor3 = Color3.fromRGB(238, 241, 245)
     minimize.Text = "—"
 
@@ -1507,19 +1507,20 @@ local function createGui()
         frame,
         "Status",
         "Starting scanner...",
-        UDim2.new(1, -28, 0, 42),
+        UDim2.new(1, -28, 0, 50),
         UDim2.fromOffset(14, 42),
-        14
+        18
     )
-    status.TextColor3 = Color3.fromRGB(188, 199, 216)
+    status.Font = Enum.Font.GothamSemibold
+    status.TextColor3 = Color3.fromRGB(232, 236, 244)
 
     local summary = makeText(
         frame,
         "Summary",
         "Whitelist 0  |  Blacklist 0  |  Unknown 0",
-        UDim2.new(1, -28, 0, 28),
-        UDim2.fromOffset(14, 84),
-        14
+        UDim2.new(1, -28, 0, 32),
+        UDim2.fromOffset(14, 94),
+        18
     )
     summary.Font = Enum.Font.GothamSemibold
 
@@ -1530,13 +1531,13 @@ local function createGui()
     divider.BackgroundColor3 = Color3.fromRGB(76, 82, 94)
     divider.BackgroundTransparency = 0.25
     divider.Size = UDim2.new(1, -28, 0, 1)
-    divider.Position = UDim2.fromOffset(14, 116)
+    divider.Position = UDim2.fromOffset(14, 130)
 
     local list = Instance.new("ScrollingFrame")
     list.Name = "PlayerList"
     list.Parent = frame
-    list.Position = UDim2.fromOffset(12, 126)
-    list.Size = UDim2.new(1, -24, 1, -138)
+    list.Position = UDim2.fromOffset(12, 140)
+    list.Size = UDim2.new(1, -24, 1, -152)
     list.BackgroundTransparency = 1
     list.BorderSizePixel = 0
     list.ScrollBarThickness = 6
@@ -1738,14 +1739,14 @@ local function guiSetPlayer(player, state, detail, order)
         label = Instance.new("TextLabel")
         label.Name = "P_" .. key
         label.Parent = GUI.list
-        label.Size = UDim2.new(1, -6, 0, 58)
+        label.Size = UDim2.new(1, -6, 0, 72)
         label.AutomaticSize = Enum.AutomaticSize.Y
         label.BackgroundColor3 = rowColor(state)
         label.BackgroundTransparency = 0.08
         label.BorderSizePixel = 0
-        label.Font = Enum.Font.Gotham
-        label.TextSize = 14
-        label.TextColor3 = Color3.fromRGB(245, 247, 250)
+        label.Font = Enum.Font.GothamSemibold
+        label.TextSize = 18
+        label.TextColor3 = Color3.fromRGB(255, 255, 255)
         label.TextXAlignment = Enum.TextXAlignment.Left
         label.TextYAlignment = Enum.TextYAlignment.Top
         label.TextWrapped = true
@@ -1758,8 +1759,8 @@ local function guiSetPlayer(player, state, detail, order)
 
         local padding = Instance.new("UIPadding")
         padding.Parent = label
-        padding.PaddingTop = UDim.new(0, 8)
-        padding.PaddingBottom = UDim.new(0, 8)
+        padding.PaddingTop = UDim.new(0, 10)
+        padding.PaddingBottom = UDim.new(0, 10)
         padding.PaddingLeft = UDim.new(0, 10)
         padding.PaddingRight = UDim.new(0, 10)
 
@@ -4009,6 +4010,9 @@ local function t511MouseClickPlayerLabel(label, plr)
     return clicked
 end
 
+local t5FindTradeListPlayerButton
+local t5ClickButton
+
 local function t54OpenTargetCard(plr)
     local cleared = t58CloseAnyOpenCard()
 
@@ -4018,22 +4022,25 @@ local function t54OpenTargetCard(plr)
 
     task.wait(0.20)
 
-    local label, why = t58FindTargetPlayerLabel(plr)
+    -- Reuse the older proven T5 UI-row path for only the first click.
+    -- The rest of T5.19 (card verification, Trade click, pending proof,
+    -- decline/ignore handling) remains unchanged.
+    local rowButton, why = t5FindTradeListPlayerButton(plr)
 
-    if not label then
+    if not rowButton then
         return false, why
     end
 
     print(
-        "[MM2 T5.19] EXACT PLAYERLABEL",
+        "[MM2 T5.25] REFERENCE ROW BUTTON",
         plr.Name,
-        "|", label:GetFullName()
+        "|", rowButton:GetFullName()
     )
 
-    local clicked = t511MouseClickPlayerLabel(label, plr)
+    local clicked = t5ClickButton(rowButton)
 
     if not clicked then
-        return false, "mouse-style PlayerLabel click failed"
+        return false, "T5 row/button click failed"
     end
 
     local deadline = os.clock() + 3.0
@@ -4112,7 +4119,7 @@ local function t5FindTradePanel()
     return nil
 end
 
-local function t5FindTradeListPlayerButton(plr)
+t5FindTradeListPlayerButton = function(plr)
     local panel = t5FindTradePanel()
 
     if not panel then
@@ -4174,7 +4181,7 @@ local function t5Roots()
     return out
 end
 
-local function t5ClickButton(b)
+t5ClickButton = function(b)
     if not b or not t5Visible(b) then
         return false
     end
