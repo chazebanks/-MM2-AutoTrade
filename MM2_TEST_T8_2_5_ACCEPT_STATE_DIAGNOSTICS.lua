@@ -4950,15 +4950,15 @@ local function t5SendAndWatch(target)
         )
 
         print(
-            "[MM2 T5.19] STEP 3",
+            "[MM2 T5.24] REQUEST PROOF",
             target.Name,
-            "| waiting for TRADE REQUEST PENDING"
+            "| waiting for pending or trade-open"
         )
 
         t5Row(
             target,
             "sending",
-            "Trade tapped | verifying TRADE REQUEST PENDING"
+            "SendRequest called | verifying pending or trade-open"
         )
 
         local proofDeadline = os.clock() + 2.75
@@ -5043,24 +5043,24 @@ local function t5SendAndWatch(target)
 
         if delivered then
             print(
-                "[MM2 T5.19] DELIVERY CONFIRMED",
+                "[MM2 T5.24] DELIVERY CONFIRMED",
                 target.Name,
-                "| MM2 panel -> card -> Trade -> pending"
+                "| direct SendRequest -> pending"
             )
             break
         end
 
         warn(
-            "[MM2 T5.19] PENDING NOT FOUND",
+            "[MM2 T5.24] REQUEST PROOF NOT FOUND",
             target.Name,
-            "| tablet attempt", attempt
+            "| direct attempt", attempt
         )
 
         t5Row(
             target,
             "sending",
             string.format(
-                "Trade tapped but no pending prompt | attempt %d/%d",
+                "SendRequest sent but no pending/trade proof | attempt %d/%d",
                 attempt,
                 maxAttempts
             )
@@ -5077,7 +5077,7 @@ local function t5SendAndWatch(target)
         t5Row(
             target,
             "sendfailed",
-            "MM2 trade-panel flow never produced TRADE REQUEST PENDING | NOT ignored"
+            "Direct SendRequest never produced pending/trade proof | NOT ignored"
         )
 
         return "send-failed"
