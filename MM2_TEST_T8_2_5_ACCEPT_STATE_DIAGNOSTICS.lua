@@ -3964,27 +3964,11 @@ local function t511MouseClickPlayerLabel(label, plr)
         return false
     end
 
-    -- Delta/iPad: use the same touch-first path that already works for
-    -- other MM2 GUI controls. The old mouse-only path could report success
-    -- even when the player card never opened.
-    print(
-        "[MM2 T5.20] PLAYERLABEL TOUCH",
-        plr and plr.Name or "?",
-        "|", label:GetFullName()
-    )
-
-    local touched = t59DirectTap(label)
-
-    if touched then
-        return true
-    end
-
-    -- Narrow fallback for executors where SendTouchEvent is unavailable.
     local ok, pos, size = pcall(function()
         return label.AbsolutePosition, label.AbsoluteSize
     end)
 
-    if not ok or not pos or not size then
+    if not ok or not pos or not size or size.X <= 1 or size.Y <= 1 then
         return false
     end
 
@@ -3998,11 +3982,52 @@ local function t511MouseClickPlayerLabel(label, plr)
         insetY = topLeft.Y
     end)
 
+    -- On this iPad, PlayerGui coordinates sit below Roblox's top inset while
+    -- VirtualInputManager uses full-screen coordinates. Apply the same inset
+    -- correction to touch that the older mouse path required.
     local x = rawX + insetX
     local y = rawY + insetY
 
     print(
-        "[MM2 T5.20] PLAYERLABEL MOUSE FALLBACK",
+        "[MM2 T5.21] PLAYERLABEL TOUCH",
+        plr and plr.Name or "?",
+        "| raw", math.floor(rawX), math.floor(rawY),
+        "| corrected", math.floor(x), math.floor(y),
+        "| guiInset", math.floor(insetX), math.floor(insetY)
+    )
+
+    local touched = false
+
+    if VIM and VIM.SendTouchEvent then
+        touched = pcall(function()
+            VIM:SendTouchEvent(1, 0, x, y)
+            task.wait(0.08)
+            VIM:SendTouchEvent(1, 2, x, y)
+        end)
+    end
+
+    if touched then
+        -- Do not trust a successful input call as proof the UI reacted.
+        -- Give MM2 a short chance to render any Profile/Trade card first.
+        local touchDeadline = os.clock() + 0.45
+
+        while os.clock() < touchDeadline do
+            local card = t57FindOpenPlayerCard(plr)
+
+            if card then
+                print(
+                    "[MM2 T5.21] TOUCH OPENED CARD",
+                    plr and plr.Name or "?"
+                )
+                return true
+            end
+
+            task.wait(0.05)
+        end
+    end
+
+    print(
+        "[MM2 T5.21] TOUCH NO CARD - MOUSE FALLBACK",
         plr and plr.Name or "?",
         "|", math.floor(x), math.floor(y)
     )
@@ -4013,7 +4038,6 @@ local function t511MouseClickPlayerLabel(label, plr)
         VIM:SendMouseButtonEvent(x, y, 0, false, game, 0)
     end)
 end
-
 local function t54OpenTargetCard(plr)
     local cleared = t58CloseAnyOpenCard()
 
