@@ -3880,54 +3880,33 @@ local function t58CloseAnyOpenCard()
 end
 
 
+local function t5PhysicalTap(gui, mode)
+    if not gui or not t5Visible(gui) then return false end
+    local p, z = gui.AbsolutePosition, gui.AbsoluteSize
+    if z.X < 2 or z.Y < 2 then return false end
+    local x, y = p.X + z.X/2, p.Y + z.Y/2
+    if mode == "inset" then
+        local ok, inset = pcall(function() return GuiService:GetGuiInset() end)
+        if ok and inset then x += inset.X; y += inset.Y end
+    end
+    local ok = pcall(function()
+        VIM:SendTouchEvent(0, 0, x, y)
+        task.wait(0.12)
+        VIM:SendTouchEvent(0, 2, x, y)
+    end)
+    if not ok then
+        ok = pcall(function()
+            VIM:SendMouseButtonEvent(x, y, 0, true, game, 0)
+            task.wait(0.10)
+            VIM:SendMouseButtonEvent(x, y, 0, false, game, 0)
+        end)
+    end
+    print("[MM2 T5] PHYSICAL TAP", gui:GetFullName(), mode, math.floor(x), math.floor(y), ok)
+    return ok
+end
+
 local function t511MouseClickPlayerLabel(label, plr)
-    if not label or not t5Visible(label) then
-        return false
-    end
-
-    local ok, pos, size = pcall(function()
-        return label.AbsolutePosition, label.AbsoluteSize
-    end)
-
-    if not ok or not pos or not size then
-        return false
-    end
-
-    local rawX = pos.X + size.X / 2
-    local rawY = pos.Y + size.Y / 2
-
-    local insetX, insetY = 0, 0
-    pcall(function()
-        local topLeft = GuiService:GetGuiInset()
-        insetX = topLeft.X
-        insetY = topLeft.Y
-    end)
-
-    -- IMPORTANT:
-    -- MM2's PlayerGui AbsolutePosition is measured below Roblox's top inset,
-    -- while VirtualInputManager expects full-screen coordinates on this iPad.
-    -- The screen recording proved our old clicks were exactly insetY pixels
-    -- too high (58 px in the captured session).
-    local x = rawX + insetX
-    local y = rawY + insetY
-
-    print(
-        "[MM2 T5.19] PLAYERLABEL CLICK COORDS",
-        plr and plr.Name or "?",
-        "| raw", math.floor(rawX), math.floor(rawY),
-        "| corrected", math.floor(x), math.floor(y),
-        "| w", math.floor(size.X),
-        "| h", math.floor(size.Y),
-        "| guiInset", math.floor(insetX), math.floor(insetY)
-    )
-
-    local clicked = pcall(function()
-        VIM:SendMouseButtonEvent(x, y, 0, true, game, 0)
-        task.wait(0.07)
-        VIM:SendMouseButtonEvent(x, y, 0, false, game, 0)
-    end)
-
-    return clicked
+    return t5PhysicalTap(label, "raw")
 end
 
 local function t54OpenTargetCard(plr)
@@ -3955,24 +3934,18 @@ local function t54OpenTargetCard(plr)
         return false, "no verified player card"
     end
 
-    -- Try the previously proven inset-adjusted mouse click first.
+    -- Touch the visible row and verify the resulting profile card.
     if t511MouseClickPlayerLabel(label, plr) then
         local verified, trade = checkCard(1.25)
         if verified then return true, trade end
     end
 
-    -- Device-dependent coordinate fallback: raw mouse coordinates.
+    -- Retry with inset-adjusted touch only when raw touch failed verification.
     if not t58CloseAnyOpenCard() then return false, "stale card after first click" end
     label = select(1, t58FindTargetPlayerLabel(plr))
     if not label then return false, "target label disappeared" end
-    local p, z = label.AbsolutePosition, label.AbsoluteSize
-    local x, y = p.X + z.X / 2, p.Y + z.Y / 2
-    print("[MM2 T5] RAW LABEL CLICK RETRY", plr.Name, math.floor(x), math.floor(y))
-    pcall(function()
-        VIM:SendMouseButtonEvent(x, y, 0, true, game, 0)
-        task.wait(0.07)
-        VIM:SendMouseButtonEvent(x, y, 0, false, game, 0)
-    end)
+    print("[MM2 T5] INSET TOUCH RETRY", plr.Name)
+    t5PhysicalTap(label, "inset")
     local verified, trade = checkCard(1.25)
     if verified then return true, trade end
 
@@ -3981,7 +3954,7 @@ local function t54OpenTargetCard(plr)
     label = select(1, t58FindTargetPlayerLabel(plr))
     if not label then return false, "target label disappeared before touch" end
     print("[MM2 T5] TOUCH LABEL RETRY", plr.Name)
-    t59DirectTap(label)
+    t5PhysicalTap(label, "raw")
     return checkCard(1.5)
 end
 
@@ -4410,50 +4383,8 @@ end
 
 
 local function t513ClickVerifiedTradeButton(button, target)
-    if not button or not t5Visible(button) then
-        return false
-    end
-
-    local ok, pos, size = pcall(function()
-        return button.AbsolutePosition, button.AbsoluteSize
-    end)
-
-    if not ok or not pos or not size then
-        return false
-    end
-
-    local insetX, insetY = 0, 0
-
-    pcall(function()
-        local topLeft = GuiService:GetGuiInset()
-        insetX = topLeft.X
-        insetY = topLeft.Y
-    end)
-
-    local rawX = pos.X + size.X / 2
-    local rawY = pos.Y + size.Y / 2
-    local x = rawX + insetX
-    local y = rawY + insetY
-
-    print(
-        "[MM2 T5.19] TRADE BUTTON CLICK COORDS",
-        target and target.Name or "?",
-        "| raw", math.floor(rawX), math.floor(rawY),
-        "| corrected", math.floor(x), math.floor(y),
-        "| guiInset", math.floor(insetX), math.floor(insetY)
-    )
-
-    -- IMPORTANT:
-    -- Do NOT call the older t5ClickButton here. That helper also sends a raw
-    -- physical click after firing button signals, which can land ~58 px high
-    -- on this iPad and hit Profile instead of Trade.
-    local clicked = pcall(function()
-        VIM:SendMouseButtonEvent(x, y, 0, true, game, 0)
-        task.wait(0.07)
-        VIM:SendMouseButtonEvent(x, y, 0, false, game, 0)
-    end)
-
-    return clicked
+    -- One physical touch only; no synthetic Activated/MouseButton signals.
+    return t5PhysicalTap(button, "raw")
 end
 
 
