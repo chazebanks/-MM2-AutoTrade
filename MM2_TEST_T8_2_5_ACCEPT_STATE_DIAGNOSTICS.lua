@@ -3276,10 +3276,21 @@ local function t55FindMM2TradePlayerTarget(plr)
         "| object:", best.node:GetFullName()
     )
 
-    -- MM2's row is normally:
-    -- Leaderboard.Container.<username>.PlayerLabel
-    -- Tapping only PlayerLabel can hit the wrong/stale row on tablet.
-    -- Prefer the row container named after the username/display name.
+    -- Prefer a real clickable control whenever MM2 exposes one.
+    -- Previous T5.22 logic returned the username row Frame first, which can
+    -- swallow the tap even when a clickable GuiButton ancestor exists.
+    if best.button then
+        print(
+            "[MM2 T5.23] USING CLICKABLE CONTROL",
+            best.button:GetFullName(),
+            "| class", best.button.ClassName
+        )
+        return best.button, nil
+    end
+
+    -- If there is no GuiButton ancestor, only use the username row itself
+    -- when it is actually clickable. Otherwise fall back to the matched text
+    -- object so the physical touch lands on the visible player name.
     local row = best.node.Parent
     local userKey = t5Key(plr.Name)
     local displayKey = t5Key(plr.DisplayName)
@@ -3297,17 +3308,26 @@ local function t55FindMM2TradePlayerTarget(plr)
                 and nk == displayKey
             )
         then
-            print(
-                "[MM2 T5.19] USING ROW CONTAINER",
-                row:GetFullName()
-            )
-            return row, nil
+            if row:IsA("GuiButton") then
+                print(
+                    "[MM2 T5.23] USING CLICKABLE ROW",
+                    row:GetFullName()
+                )
+                return row, nil
+            end
+
+            break
         end
 
         row = row.Parent
     end
 
-    return best.button or best.node, nil
+    print(
+        "[MM2 T5.23] USING VISIBLE NAME TARGET",
+        best.node:GetFullName(),
+        "| class", best.node.ClassName
+    )
+    return best.node, nil
 end
 
 local function t54AncestorContainsTarget(node, plr)
