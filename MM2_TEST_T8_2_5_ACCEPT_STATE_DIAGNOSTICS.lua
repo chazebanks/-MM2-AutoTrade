@@ -1376,7 +1376,7 @@ local GUI = {
     minimize = nil,
     rows = {},
     minimized = false,
-    fullSize = UDim2.fromOffset(470, 520),
+    fullSize = UDim2.fromOffset(540, 560),
     miniSize = UDim2.fromOffset(470, 105),
 }
 
@@ -1425,7 +1425,7 @@ local function makeText(parent, name, text, size, pos, fontSize)
     x.Size = size
     x.Position = pos or UDim2.new()
     x.Font = Enum.Font.Gotham
-    x.TextSize = fontSize or 16
+    x.TextSize = fontSize or 20
     x.TextColor3 = Color3.fromRGB(238, 241, 245)
     x.TextXAlignment = Enum.TextXAlignment.Left
     x.TextYAlignment = Enum.TextYAlignment.Center
@@ -1482,7 +1482,7 @@ local function createGui()
         "MM2 T4.4 Live Eligibility Scanner",
         UDim2.new(1, -74, 1, 0),
         UDim2.fromOffset(14, 0),
-        18
+        22
     )
     title.Font = Enum.Font.GothamBold
 
@@ -1495,7 +1495,7 @@ local function createGui()
     minimize.BackgroundTransparency = 0.08
     minimize.BorderSizePixel = 0
     minimize.Font = Enum.Font.GothamBold
-    minimize.TextSize = 18
+    minimize.TextSize = 22
     minimize.TextColor3 = Color3.fromRGB(238, 241, 245)
     minimize.Text = "—"
 
@@ -1507,19 +1507,20 @@ local function createGui()
         frame,
         "Status",
         "Starting scanner...",
-        UDim2.new(1, -28, 0, 42),
+        UDim2.new(1, -28, 0, 50),
         UDim2.fromOffset(14, 42),
-        14
+        18
     )
-    status.TextColor3 = Color3.fromRGB(188, 199, 216)
+    status.Font = Enum.Font.GothamSemibold
+    status.TextColor3 = Color3.fromRGB(232, 236, 244)
 
     local summary = makeText(
         frame,
         "Summary",
         "Whitelist 0  |  Blacklist 0  |  Unknown 0",
-        UDim2.new(1, -28, 0, 28),
-        UDim2.fromOffset(14, 84),
-        14
+        UDim2.new(1, -28, 0, 32),
+        UDim2.fromOffset(14, 94),
+        18
     )
     summary.Font = Enum.Font.GothamSemibold
 
@@ -1530,13 +1531,13 @@ local function createGui()
     divider.BackgroundColor3 = Color3.fromRGB(76, 82, 94)
     divider.BackgroundTransparency = 0.25
     divider.Size = UDim2.new(1, -28, 0, 1)
-    divider.Position = UDim2.fromOffset(14, 116)
+    divider.Position = UDim2.fromOffset(14, 130)
 
     local list = Instance.new("ScrollingFrame")
     list.Name = "PlayerList"
     list.Parent = frame
-    list.Position = UDim2.fromOffset(12, 126)
-    list.Size = UDim2.new(1, -24, 1, -138)
+    list.Position = UDim2.fromOffset(12, 140)
+    list.Size = UDim2.new(1, -24, 1, -152)
     list.BackgroundTransparency = 1
     list.BorderSizePixel = 0
     list.ScrollBarThickness = 6
@@ -1738,14 +1739,14 @@ local function guiSetPlayer(player, state, detail, order)
         label = Instance.new("TextLabel")
         label.Name = "P_" .. key
         label.Parent = GUI.list
-        label.Size = UDim2.new(1, -6, 0, 58)
+        label.Size = UDim2.new(1, -6, 0, 72)
         label.AutomaticSize = Enum.AutomaticSize.Y
         label.BackgroundColor3 = rowColor(state)
         label.BackgroundTransparency = 0.08
         label.BorderSizePixel = 0
-        label.Font = Enum.Font.Gotham
-        label.TextSize = 14
-        label.TextColor3 = Color3.fromRGB(245, 247, 250)
+        label.Font = Enum.Font.GothamSemibold
+        label.TextSize = 18
+        label.TextColor3 = Color3.fromRGB(255, 255, 255)
         label.TextXAlignment = Enum.TextXAlignment.Left
         label.TextYAlignment = Enum.TextYAlignment.Top
         label.TextWrapped = true
@@ -1758,8 +1759,8 @@ local function guiSetPlayer(player, state, detail, order)
 
         local padding = Instance.new("UIPadding")
         padding.Parent = label
-        padding.PaddingTop = UDim.new(0, 8)
-        padding.PaddingBottom = UDim.new(0, 8)
+        padding.PaddingTop = UDim.new(0, 10)
+        padding.PaddingBottom = UDim.new(0, 10)
         padding.PaddingLeft = UDim.new(0, 10)
         padding.PaddingRight = UDim.new(0, 10)
 
@@ -4861,24 +4862,14 @@ local function t5SendAndWatch(target)
             return "trade-open"
         end
 
-        local mm2Root = t56FindMM2LeaderboardRoot()
-        local mm2Panel = t55FindMM2TradePanel()
-
-        print(
-            "[MM2 T5.19] MM2 LEADERBOARD ROOT",
-            mm2Root and mm2Root:GetFullName() or "NOT FOUND"
-        )
-
-        print(
-            "[MM2 T5.19] TRADE CONTROLS",
-            mm2Panel and mm2Panel:GetFullName() or "NOT FOUND"
-        )
-
+        -- T5.24: restore the old proven outgoing request path.
+        -- Do not navigate Profile/Trade cards. Send directly through MM2's
+        -- Trade.SendRequest RemoteFunction, then verify pending/trade state.
         t5Row(
             target,
             "sending",
             string.format(
-                "MM2 panel attempt %d/%d | tapping target name",
+                "Direct SendRequest attempt %d/%d",
                 attempt,
                 maxAttempts
             )
@@ -4886,7 +4877,7 @@ local function t5SendAndWatch(target)
 
         t5SetStatus(
             string.format(
-                "MM2 trade-panel send to %s | opening player card %d/%d",
+                "sending direct trade request to %s | attempt %d/%d",
                 target.Name,
                 attempt,
                 maxAttempts
@@ -4894,72 +4885,46 @@ local function t5SendAndWatch(target)
         )
 
         print(
-            "[MM2 T5.19] STEP 1",
+            "[MM2 T5.24] OUTGOING REQUEST CALL",
             target.Name,
-            "| tap target in MM2 trade panel",
             "| attempt", attempt
         )
 
-        local opened, tradeButtonOrWhy = t54OpenTargetCard(target)
-
-        if not opened then
+        if not SendRequest_T5
+            or not SendRequest_T5:IsA("RemoteFunction")
+        then
             warn(
-                "[MM2 T5.19] CARD OPEN FAILED",
-                target.Name,
-                "|", tostring(tradeButtonOrWhy)
+                "[MM2 T5.24] SEND REQUEST REMOTE MISSING",
+                tostring(SendRequest_T5)
             )
-
-            t5Row(
-                target,
-                "sending",
-                "Could not open target Profile/Trade card from MM2 panel | retrying"
-            )
-
-            if attempt < maxAttempts then
-                task.wait(0.8)
-                continue
-            end
 
             T5.failed += 1
 
             t5Row(
                 target,
                 "sendfailed",
-                "Failed at MM2 trade-panel/card stage after 3 attempts"
+                "Trade.SendRequest RemoteFunction missing"
             )
 
             return "send-failed"
         end
 
-        local tradeButton = tradeButtonOrWhy
-
-        t5Row(
-            target,
-            "sending",
-            "Player card opened | tapping Trade"
-        )
+        local invokeOK, invokeResult = pcall(function()
+            return SendRequest_T5:InvokeServer(target)
+        end)
 
         print(
-            "[MM2 T5.19] STEP 2",
+            "[MM2 T5.24] OUTGOING REQUEST ACK",
             target.Name,
-            "| Trade button found | clicking"
+            "| pcall", tostring(invokeOK),
+            "| result", tostring(invokeResult)
         )
 
-        local clickedTrade = t513ClickVerifiedTradeButton(
-            tradeButton,
-            target
-        )
-
-        if not clickedTrade then
+        if not invokeOK then
             warn(
-                "[MM2 T5.19] TRADE BUTTON CLICK FAILED",
-                target.Name
-            )
-
-            t5Row(
-                target,
-                "sending",
-                "Trade button click failed | retrying"
+                "[MM2 T5.24] SEND REQUEST INVOKE ERROR",
+                target.Name,
+                "|", tostring(invokeResult)
             )
 
             if attempt < maxAttempts then
@@ -4972,11 +4937,17 @@ local function t5SendAndWatch(target)
             t5Row(
                 target,
                 "sendfailed",
-                "Failed to click Trade after 3 attempts"
+                "Direct SendRequest errored after 3 attempts"
             )
 
             return "send-failed"
         end
+
+        print(
+            "[MM2 T5.24] WAITING FOR REQUEST PROOF",
+            target.Name,
+            "| pending or trade-open"
+        )
 
         print(
             "[MM2 T5.19] STEP 3",
