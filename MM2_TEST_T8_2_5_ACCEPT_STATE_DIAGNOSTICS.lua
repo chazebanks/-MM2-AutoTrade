@@ -3964,6 +3964,22 @@ local function t511MouseClickPlayerLabel(label, plr)
         return false
     end
 
+    -- Delta/iPad: use the same touch-first path that already works for
+    -- other MM2 GUI controls. The old mouse-only path could report success
+    -- even when the player card never opened.
+    print(
+        "[MM2 T5.20] PLAYERLABEL TOUCH",
+        plr and plr.Name or "?",
+        "|", label:GetFullName()
+    )
+
+    local touched = t59DirectTap(label)
+
+    if touched then
+        return true
+    end
+
+    -- Narrow fallback for executors where SendTouchEvent is unavailable.
     local ok, pos, size = pcall(function()
         return label.AbsolutePosition, label.AbsoluteSize
     end)
@@ -3982,31 +3998,20 @@ local function t511MouseClickPlayerLabel(label, plr)
         insetY = topLeft.Y
     end)
 
-    -- IMPORTANT:
-    -- MM2's PlayerGui AbsolutePosition is measured below Roblox's top inset,
-    -- while VirtualInputManager expects full-screen coordinates on this iPad.
-    -- The screen recording proved our old clicks were exactly insetY pixels
-    -- too high (58 px in the captured session).
     local x = rawX + insetX
     local y = rawY + insetY
 
     print(
-        "[MM2 T5.19] PLAYERLABEL CLICK COORDS",
+        "[MM2 T5.20] PLAYERLABEL MOUSE FALLBACK",
         plr and plr.Name or "?",
-        "| raw", math.floor(rawX), math.floor(rawY),
-        "| corrected", math.floor(x), math.floor(y),
-        "| w", math.floor(size.X),
-        "| h", math.floor(size.Y),
-        "| guiInset", math.floor(insetX), math.floor(insetY)
+        "|", math.floor(x), math.floor(y)
     )
 
-    local clicked = pcall(function()
+    return pcall(function()
         VIM:SendMouseButtonEvent(x, y, 0, true, game, 0)
         task.wait(0.07)
         VIM:SendMouseButtonEvent(x, y, 0, false, game, 0)
     end)
-
-    return clicked
 end
 
 local function t54OpenTargetCard(plr)
@@ -4033,7 +4038,7 @@ local function t54OpenTargetCard(plr)
     local clicked = t511MouseClickPlayerLabel(label, plr)
 
     if not clicked then
-        return false, "mouse-style PlayerLabel click failed"
+        return false, "touch/mouse PlayerLabel click failed"
     end
 
     local deadline = os.clock() + 3.0
