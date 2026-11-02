@@ -3880,6 +3880,28 @@ local function t58CloseAnyOpenCard()
 end
 
 
+-- Returns the GuiInset to add to an element's AbsolutePosition for VIM clicks.
+-- The inset only applies when the owning ScreenGui respects it; a ScreenGui
+-- with IgnoreGuiInset=true already reports full-screen coordinates.
+function T5.guiInsetFor(gui)
+    local insetX, insetY = 0, 0
+    local ok, topLeft = pcall(function()
+        return GuiService:GetGuiInset()
+    end)
+
+    if ok and topLeft then
+        insetX, insetY = topLeft.X, topLeft.Y
+    end
+
+    local screen = gui and gui:FindFirstAncestorWhichIsA("ScreenGui")
+
+    if screen and screen.IgnoreGuiInset == true then
+        return 0, 0
+    end
+
+    return insetX, insetY
+end
+
 local function t511MouseClickPlayerLabel(label, plr)
     if not label or not t5Visible(label) then
         return false
@@ -3896,12 +3918,7 @@ local function t511MouseClickPlayerLabel(label, plr)
     local rawX = pos.X + size.X / 2
     local rawY = pos.Y + size.Y / 2
 
-    local insetX, insetY = 0, 0
-    pcall(function()
-        local topLeft = GuiService:GetGuiInset()
-        insetX = topLeft.X
-        insetY = topLeft.Y
-    end)
+    local insetX, insetY = T5.guiInsetFor(label)
 
     -- IMPORTANT:
     -- MM2's PlayerGui AbsolutePosition is measured below Roblox's top inset,
@@ -4434,13 +4451,7 @@ local function t513ClickVerifiedTradeButton(button, target)
         return false
     end
 
-    local insetX, insetY = 0, 0
-
-    pcall(function()
-        local topLeft = GuiService:GetGuiInset()
-        insetX = topLeft.X
-        insetY = topLeft.Y
-    end)
+    local insetX, insetY = T5.guiInsetFor(button)
 
     local rawX = pos.X + size.X / 2
     local rawY = pos.Y + size.Y / 2
