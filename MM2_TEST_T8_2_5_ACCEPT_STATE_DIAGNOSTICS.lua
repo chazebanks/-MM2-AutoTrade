@@ -4047,6 +4047,48 @@ local function t54OpenTargetCard(plr)
 
     task.wait(0.20)
 
+    -- Prefer the verified whole leaderboard row / clickable ancestor.
+    -- This is more reliable on iPad than targeting the nested PlayerLabel.
+    local rowTarget, rowWhy = t55FindMM2TradePlayerTarget(plr)
+
+    if not rowTarget then
+        return false, rowWhy
+    end
+
+    print(
+        "[MM2 T5.22] VERIFIED ROW TARGET",
+        plr.Name,
+        "|", rowTarget:GetFullName(),
+        "| class", rowTarget.ClassName
+    )
+
+    local rowTapped = t59DirectTap(rowTarget)
+
+    if rowTapped then
+        local rowDeadline = os.clock() + 0.55
+
+        while os.clock() < rowDeadline do
+            local card, tradeButton, matched = t57FindOpenPlayerCard(plr)
+
+            if card and matched == true then
+                print(
+                    "[MM2 T5.22] ROW TAP OPENED CARD",
+                    plr.Name,
+                    "|", card:GetFullName()
+                )
+                return true, tradeButton
+            end
+
+            if card and matched == false then
+                t58CloseAnyOpenCard()
+                break
+            end
+
+            task.wait(0.05)
+        end
+    end
+
+    -- Fallback: use the exact PlayerLabel path with corrected touch/mouse.
     local label, why = t58FindTargetPlayerLabel(plr)
 
     if not label then
@@ -4054,7 +4096,7 @@ local function t54OpenTargetCard(plr)
     end
 
     print(
-        "[MM2 T5.19] EXACT PLAYERLABEL",
+        "[MM2 T5.22] ROW TAP NO CARD - LABEL FALLBACK",
         plr.Name,
         "|", label:GetFullName()
     )
@@ -4062,7 +4104,7 @@ local function t54OpenTargetCard(plr)
     local clicked = t511MouseClickPlayerLabel(label, plr)
 
     if not clicked then
-        return false, "touch/mouse PlayerLabel click failed"
+        return false, "row + touch/mouse PlayerLabel click failed"
     end
 
     local deadline = os.clock() + 3.0
