@@ -2735,6 +2735,7 @@ print(
 
 -- MODULE SCOPE: trading stack (T5/T6/T7/T8)
 -- All trading locals compile inside their own function budget while capturing T4 exports as upvalues.
+do
 (function()
 -- ============================================================================
 -- T5 OUTGOING REQUEST ROTATION TEST
@@ -7781,3 +7782,4 @@ end)
 
 
 end)()
+end
