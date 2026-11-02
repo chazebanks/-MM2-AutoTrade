@@ -7590,11 +7590,68 @@ task.spawn(function()
 end)
 
 
+-- T8.2.7: a trade counts as visibly rendered only after its GUI is
+-- actually on-screen. MM2 can set Visible=true during its opening transition
+-- while the Trade frame is still positioned outside the viewport.
+local function t827TradeRendered(trade)
+    if not trade or not trade.Parent then
+        return false
+    end
+
+    local node = trade
+
+    while node do
+        if node:IsA("GuiObject") and not node.Visible then
+            return false
+        end
+
+        if node:IsA("ScreenGui") then
+            local ok, enabled = pcall(function()
+                return node.Enabled
+            end)
+
+            if ok and not enabled then
+                return false
+            end
+
+            break
+        end
+
+        node = node.Parent
+    end
+
+    local camera = workspace.CurrentCamera
+    local viewport = camera and camera.ViewportSize
+    local pos = trade.AbsolutePosition
+    local size = trade.AbsoluteSize
+
+    if size.X <= 0 or size.Y <= 0 then
+        return false
+    end
+
+    if viewport
+        and (
+            pos.X < 0
+            or pos.Y < 0
+            or pos.X + size.X > viewport.X
+            or pos.Y + size.Y > viewport.Y
+        )
+    then
+        return false
+    end
+
+    return true
+end
+
 -- T8.2.6: UI-first accepted-empty detection.
 -- Reads the rendered trade UI only; never touches our Accept button.
 local function t826TheirAcceptShown(trade)
     if not trade then
         return false, "no-trade"
+    end
+
+    if not t827TradeRendered(trade) then
+        return false, "trade-not-rendered"
     end
 
     local function shown(obj)
@@ -7660,7 +7717,11 @@ task.spawn(function()
         local trade = t6Trade()
         local target = T5 and T5.active or nil
 
-        if not trade or not target or not target.Parent then
+        if not trade
+            or not target
+            or not target.Parent
+            or not t827TradeRendered(trade)
+        then
             watchedUid = nil
             emptySince = nil
             fired = false
